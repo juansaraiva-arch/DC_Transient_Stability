@@ -35,15 +35,62 @@ st.markdown("""
         color: #FFCD00 !important;
         margin: 0;
     }
+    .main-header p {
+        color: #CCCCCC !important;
+        margin: 0;
+    }
     
-    /* Sidebar styling */
+    /* Sidebar styling - FIXED FOR READABILITY */
     [data-testid="stSidebar"] {
         background: linear-gradient(180deg, #1A1A1A 0%, #2D2D2D 100%);
     }
+    
+    /* Sidebar titles */
     [data-testid="stSidebar"] .stMarkdown h1,
     [data-testid="stSidebar"] .stMarkdown h2,
     [data-testid="stSidebar"] .stMarkdown h3 {
         color: #FFCD00 !important;
+    }
+    
+    /* Sidebar all text white */
+    [data-testid="stSidebar"] label,
+    [data-testid="stSidebar"] .stMarkdown p,
+    [data-testid="stSidebar"] .stMarkdown span,
+    [data-testid="stSidebar"] .stCaption,
+    [data-testid="stSidebar"] small,
+    [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] {
+        color: #FFFFFF !important;
+    }
+    
+    /* Sidebar expander headers */
+    [data-testid="stSidebar"] [data-testid="stExpander"] summary span {
+        color: #FFCD00 !important;
+        font-weight: bold !important;
+    }
+    
+    /* Sidebar input labels */
+    [data-testid="stSidebar"] .stNumberInput label,
+    [data-testid="stSidebar"] .stSelectbox label,
+    [data-testid="stSidebar"] .stCheckbox label,
+    [data-testid="stSidebar"] .stRadio label,
+    [data-testid="stSidebar"] .stSlider label {
+        color: #FFFFFF !important;
+    }
+    
+    /* Sidebar captions */
+    [data-testid="stSidebar"] [data-testid="stCaptionContainer"] {
+        color: #CCCCCC !important;
+    }
+    
+    /* Sidebar selectbox text */
+    [data-testid="stSidebar"] .stSelectbox [data-baseweb="select"] span {
+        color: #1A1A1A !important;
+    }
+    
+    /* Sidebar info boxes */
+    [data-testid="stSidebar"] [data-testid="stAlert"] {
+        background-color: rgba(255, 205, 0, 0.2) !important;
+        color: #FFFFFF !important;
     }
     
     /* Result boxes */
