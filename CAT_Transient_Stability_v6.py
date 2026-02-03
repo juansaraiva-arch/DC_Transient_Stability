@@ -40,33 +40,108 @@ st.markdown("""
         margin: 0;
     }
     
-    /* Sidebar styling - FIXED FOR READABILITY */
+    /* ============================================ */
+    /* SIDEBAR - DARK THEME WITH YELLOW ACCENTS    */
+    /* ============================================ */
+    
     [data-testid="stSidebar"] {
         background: linear-gradient(180deg, #1A1A1A 0%, #2D2D2D 100%);
     }
     
-    /* Sidebar titles */
-    [data-testid="stSidebar"] .stMarkdown h1,
-    [data-testid="stSidebar"] .stMarkdown h2,
-    [data-testid="stSidebar"] .stMarkdown h3 {
-        color: #FFCD00 !important;
-    }
-    
-    /* Sidebar all text white */
-    [data-testid="stSidebar"] label,
-    [data-testid="stSidebar"] .stMarkdown p,
-    [data-testid="stSidebar"] .stMarkdown span,
-    [data-testid="stSidebar"] .stCaption,
-    [data-testid="stSidebar"] small,
-    [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] {
+    /* ALL sidebar text should be white by default */
+    [data-testid="stSidebar"],
+    [data-testid="stSidebar"] * {
         color: #FFFFFF !important;
     }
     
-    /* Sidebar expander headers */
-    [data-testid="stSidebar"] [data-testid="stExpander"] summary span {
+    /* Sidebar titles - Yellow */
+    [data-testid="stSidebar"] h1,
+    [data-testid="stSidebar"] h2,
+    [data-testid="stSidebar"] h3 {
         color: #FFCD00 !important;
-        font-weight: bold !important;
     }
+    
+    /* ============================================ */
+    /* EXPANDERS - YELLOW HEADERS                   */
+    /* ============================================ */
+    
+    /* Expander container styling */
+    [data-testid="stSidebar"] [data-testid="stExpander"] {
+        background-color: rgba(255, 205, 0, 0.08) !important;
+        border: 1px solid rgba(255, 205, 0, 0.25) !important;
+        border-radius: 8px !important;
+        margin-bottom: 8px !important;
+    }
+    
+    /* Expander header text - FORCE YELLOW */
+    [data-testid="stSidebar"] [data-testid="stExpander"] summary p,
+    [data-testid="stSidebar"] [data-testid="stExpander"] summary span,
+    [data-testid="stSidebar"] [data-testid="stExpander"] summary div,
+    [data-testid="stSidebar"] [data-testid="stExpander"] [data-testid="stMarkdownContainer"] p,
+    [data-testid="stSidebar"] details > summary > span,
+    [data-testid="stSidebar"] details > summary > div {
+        color: #FFCD00 !important;
+        font-weight: 600 !important;
+        font-size: 14px !important;
+    }
+    
+    /* Expander arrow/icon */
+    [data-testid="stSidebar"] [data-testid="stExpander"] svg {
+        fill: #FFCD00 !important;
+        stroke: #FFCD00 !important;
+    }
+    
+    /* Expander content area */
+    [data-testid="stSidebar"] [data-testid="stExpander"] [data-testid="stExpanderDetails"] {
+        border-top: 1px solid rgba(255, 205, 0, 0.2) !important;
+        padding-top: 10px !important;
+    }
+    
+    /* ============================================ */
+    /* INPUT ELEMENTS                               */
+    /* ============================================ */
+    
+    /* Input labels */
+    [data-testid="stSidebar"] .stNumberInput label,
+    [data-testid="stSidebar"] .stSelectbox label,
+    [data-testid="stSidebar"] .stCheckbox label span,
+    [data-testid="stSidebar"] .stRadio label,
+    [data-testid="stSidebar"] .stSlider label {
+        color: #FFFFFF !important;
+    }
+    
+    /* Checkbox text */
+    [data-testid="stSidebar"] .stCheckbox label p {
+        color: #FFFFFF !important;
+    }
+    
+    /* Input fields background */
+    [data-testid="stSidebar"] input,
+    [data-testid="stSidebar"] .stSelectbox > div > div {
+        background-color: #FFFFFF !important;
+        color: #1A1A1A !important;
+    }
+    
+    /* Captions - lighter gray */
+    [data-testid="stSidebar"] [data-testid="stCaptionContainer"],
+    [data-testid="stSidebar"] .stCaption,
+    [data-testid="stSidebar"] small {
+        color: #BBBBBB !important;
+    }
+    
+    /* Info/Warning boxes in sidebar */
+    [data-testid="stSidebar"] [data-testid="stAlert"] {
+        background-color: rgba(255, 205, 0, 0.15) !important;
+        border: 1px solid rgba(255, 205, 0, 0.4) !important;
+    }
+    [data-testid="stSidebar"] [data-testid="stAlert"] p {
+        color: #FFFFFF !important;
+    }
+        stroke: #FFCD00 !important;
+        color: #FFCD00 !important;
+    }
+    
+    /* ============================================ */
     
     /* Sidebar input labels */
     [data-testid="stSidebar"] .stNumberInput label,
@@ -74,6 +149,12 @@ st.markdown("""
     [data-testid="stSidebar"] .stCheckbox label,
     [data-testid="stSidebar"] .stRadio label,
     [data-testid="stSidebar"] .stSlider label {
+        color: #FFFFFF !important;
+    }
+    
+    /* Checkbox and Radio text */
+    [data-testid="stSidebar"] .stCheckbox label span,
+    [data-testid="stSidebar"] .stRadio label span {
         color: #FFFFFF !important;
     }
     
