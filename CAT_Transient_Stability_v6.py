@@ -27,9 +27,6 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- CAT BRANDING CSS ---
-st.markdown("""
-
 # --- CAT BRANDING CSS (CORREGIDO) ---
 st.markdown("""
 <style>
@@ -117,6 +114,8 @@ st.markdown("""
     div[data-testid="stMetricValue"] { font-size: 28px !important; font-weight: bold !important; }
     .stTabs [aria-selected="true"] { background-color: #FFCD00 !important; color: #1A1A1A !important; }
 </style>
+""", unsafe_allow_html=True)
+
 """, unsafe_allow_html=True)
 
 """, unsafe_allow_html=True)
