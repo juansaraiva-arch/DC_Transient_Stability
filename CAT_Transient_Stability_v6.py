@@ -30,6 +30,8 @@ st.set_page_config(
 # --- CAT BRANDING CSS ---
 st.markdown("""
 
+# --- CAT BRANDING CSS (CORREGIDO) ---
+st.markdown("""
 <style>
     /* CAT Color Palette */
     :root {
@@ -57,26 +59,33 @@ st.markdown("""
         background-color: #1A1A1A !important;
     }
     
-    /* Fuerza TODOS los textos del sidebar a ser legibles */
-    [data-testid="stSidebar"] * {
-        color: #E0E0E0 !important; /* Blanco hueso para texto general */
+    /* 1. TÍTULOS DE LOS DESPLEGABLES (EXPANDERS) EN AMARILLO */
+    [data-testid="stSidebar"] [data-testid="stExpander"] summary p {
+        color: #FFCD00 !important; /* Amarillo CAT */
+        font-weight: bold !important;
+        font-size: 1.1em !important;
     }
     
-    /* Títulos y Etiquetas en Amarillo CAT */
+    /* Icono de flecha del expander en Amarillo */
+    [data-testid="stSidebar"] [data-testid="stExpander"] summary svg {
+        fill: #FFCD00 !important;
+    }
+
+    /* 2. CHECKBOXES Y RADIOS (TEXTO BLANCO) */
+    [data-testid="stSidebar"] [data-testid="stCheckbox"] label span p,
+    [data-testid="stSidebar"] [data-testid="stRadio"] label span p {
+        color: #E0E0E0 !important; /* Blanco hueso legible */
+    }
+
+    /* 3. TÍTULOS GENERALES (H1, H2, H3) Y ETIQUETAS DE INPUTS */
     [data-testid="stSidebar"] h1, 
     [data-testid="stSidebar"] h2, 
     [data-testid="stSidebar"] h3, 
-    [data-testid="stSidebar"] label { 
+    [data-testid="stSidebar"] label p { 
         color: #FFCD00 !important;
     }
     
-    /* Arreglo específico para Checkboxes y Radios que a veces se quedan oscuros */
-    [data-testid="stSidebar"] [data-testid="stCheckbox"] label span p,
-    [data-testid="stSidebar"] [data-testid="stRadio"] label span p {
-        color: #FFFFFF !important;
-    }
-
-    /* Inputs y Selectbox (Fondo Gris Oscuro + Texto Blanco) */
+    /* 4. INPUTS Y SELECTBOX (FONDO OSCURO + TEXTO BLANCO) */
     [data-testid="stSidebar"] [data-baseweb="select"] > div,
     [data-testid="stSidebar"] [data-baseweb="input"] > div {
         background-color: #333333 !important;
@@ -84,17 +93,32 @@ st.markdown("""
         border-color: #FFCD00 !important;
     }
     
-    /* Texto seleccionado y valores */
-    [data-testid="stSidebar"] input,
+    /* Texto seleccionado dentro de los inputs */
+    [data-testid="stSidebar"] input {
+        color: white !important;
+    }
+    
+    /* Texto de las opciones seleccionadas */
     [data-testid="stSidebar"] div[data-baseweb="select"] span {
         color: white !important;
     }
+    
+    /* Texto de ayuda pequeño */
+    [data-testid="stSidebar"] .stMarkdown p {
+        color: #CCCCCC !important;
+    }
 
-    /* Result boxes */
+    /* --- RESULT BOXES & TABS --- */
     .cat-box-success { background-color: #d4edda; padding: 15px; border-radius: 8px; border-left: 5px solid #28a745; color: #155724; margin-bottom: 10px; }
     .cat-box-fail { background-color: #f8d7da; padding: 15px; border-radius: 8px; border-left: 5px solid #dc3545; color: #721c24; margin-bottom: 10px; }
+    .cat-box-warning { background-color: #fff3cd; padding: 15px; border-radius: 8px; border-left: 5px solid #FFCD00; color: #856404; margin-bottom: 10px; }
     .cat-box-opt { background-color: #e3f2fd; padding: 15px; border-radius: 8px; border-left: 5px solid #0d47a1; color: #084298; }
+    
+    div[data-testid="stMetricValue"] { font-size: 28px !important; font-weight: bold !important; }
+    .stTabs [aria-selected="true"] { background-color: #FFCD00 !important; color: #1A1A1A !important; }
 </style>
+""", unsafe_allow_html=True)
+
 """, unsafe_allow_html=True)
 
 # ==============================================================================
