@@ -116,10 +116,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-""", unsafe_allow_html=True)
-
-""", unsafe_allow_html=True)
-
 # ==============================================================================
 # 1. ENHANCED DATA LIBRARY WITH DYNAMIC PARAMETERS
 # ==============================================================================
