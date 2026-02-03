@@ -4,10 +4,25 @@ import numpy as np
 from scipy.integrate import odeint
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+import json
+from datetime import datetime
+from io import BytesIO
+
+# PDF Generation
+try:
+    from reportlab.lib.pagesizes import letter
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import inch
+    from reportlab.lib.colors import HexColor, white, black
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak, Image
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT
+    HAS_REPORTLAB = True
+except ImportError:
+    HAS_REPORTLAB = False
 
 # --- PAGE CONFIG ---
 st.set_page_config(
-    page_title="CAT Transient Stability Analyzer v6.0", 
+    page_title="CAT Transient Stability Analyzer v6.1", 
     page_icon="⚡", 
     layout="wide"
 )
@@ -137,42 +152,6 @@ st.markdown("""
     [data-testid="stSidebar"] [data-testid="stAlert"] p {
         color: #FFFFFF !important;
     }
-        stroke: #FFCD00 !important;
-        color: #FFCD00 !important;
-    }
-    
-    /* ============================================ */
-    
-    /* Sidebar input labels */
-    [data-testid="stSidebar"] .stNumberInput label,
-    [data-testid="stSidebar"] .stSelectbox label,
-    [data-testid="stSidebar"] .stCheckbox label,
-    [data-testid="stSidebar"] .stRadio label,
-    [data-testid="stSidebar"] .stSlider label {
-        color: #FFFFFF !important;
-    }
-    
-    /* Checkbox and Radio text */
-    [data-testid="stSidebar"] .stCheckbox label span,
-    [data-testid="stSidebar"] .stRadio label span {
-        color: #FFFFFF !important;
-    }
-    
-    /* Sidebar captions */
-    [data-testid="stSidebar"] [data-testid="stCaptionContainer"] {
-        color: #CCCCCC !important;
-    }
-    
-    /* Sidebar selectbox text */
-    [data-testid="stSidebar"] .stSelectbox [data-baseweb="select"] span {
-        color: #1A1A1A !important;
-    }
-    
-    /* Sidebar info boxes */
-    [data-testid="stSidebar"] [data-testid="stAlert"] {
-        background-color: rgba(255, 205, 0, 0.2) !important;
-        color: #FFFFFF !important;
-    }
     
     /* Result boxes */
     .cat-box-success { 
@@ -210,6 +189,15 @@ st.markdown("""
         color: #084298;
     }
     
+    .cat-box-import {
+        background-color: #e8f5e9;
+        padding: 15px;
+        border-radius: 8px;
+        border-left: 5px solid #4caf50;
+        color: #2e7d32;
+        margin-bottom: 10px;
+    }
+    
     /* Metrics */
     div[data-testid="stMetricValue"] {
         font-size: 28px !important;
@@ -232,16 +220,16 @@ CAT_LIBRARY = {
     "XGC1900 (1.9 MW)": {
         "mw": 1.9,
         "type": "High Speed Recip",
-        "h_def": 1.0,           # Inertia constant (s)
-        "tau_gov": 0.3,         # Governor time constant (s)
-        "tau_mech": 0.5,        # Mechanical time constant (s)
-        "droop": 4.0,           # Droop setting (%)
-        "ramp_up": 0.5,         # Ramp up rate (MW/s) - ~25%/s
-        "ramp_down": 0.8,       # Ramp down rate (MW/s)
-        "xd_pp": 0.14,          # Subtransient reactance (p.u.)
-        "hr": 8.78,             # Heat rate (MMBtu/MWh)
-        "capex": 800,           # $/kW
-        "step_load_max": 25,    # Max step load capability (%)
+        "h_def": 1.0,
+        "tau_gov": 0.3,
+        "tau_mech": 0.5,
+        "droop": 4.0,
+        "ramp_up": 0.5,
+        "ramp_down": 0.8,
+        "xd_pp": 0.14,
+        "hr": 8.78,
+        "capex": 800,
+        "step_load_max": 25,
     },
     "G3520FR (2.5 MW)": {
         "mw": 2.5,
@@ -250,12 +238,12 @@ CAT_LIBRARY = {
         "tau_gov": 0.25,
         "tau_mech": 0.6,
         "droop": 4.0,
-        "ramp_up": 1.0,         # Fast Response - higher ramp
+        "ramp_up": 1.0,
         "ramp_down": 1.2,
         "xd_pp": 0.14,
         "hr": 8.83,
         "capex": 600,
-        "step_load_max": 40,    # Fast Response unit
+        "step_load_max": 40,
     },
     "G3520K (2.4 MW)": {
         "mw": 2.4,
@@ -264,14 +252,14 @@ CAT_LIBRARY = {
         "tau_gov": 0.35,
         "tau_mech": 0.6,
         "droop": 5.0,
-        "ramp_up": 0.4,         # High efficiency - slower ramp
+        "ramp_up": 0.4,
         "ramp_down": 0.6,
         "xd_pp": 0.13,
         "hr": 7.64,
         "capex": 600,
         "step_load_max": 15,
     },
-    "CG260 (3.96 MW)": {
+    "CG260-16 (3.96 MW)": {
         "mw": 3.96,
         "type": "High Speed Recip",
         "h_def": 1.2,
@@ -292,7 +280,7 @@ CAT_LIBRARY = {
         "tau_gov": 0.5,
         "tau_mech": 1.0,
         "droop": 4.0,
-        "ramp_up": 0.8,         # Medium speed - moderate ramp
+        "ramp_up": 0.8,
         "ramp_down": 1.0,
         "xd_pp": 0.16,
         "hr": 7.48,
@@ -302,11 +290,11 @@ CAT_LIBRARY = {
     "Titan 130 (16.5 MW)": {
         "mw": 16.5,
         "type": "Gas Turbine",
-        "h_def": 4.0,           # Higher inertia for turbines
+        "h_def": 4.0,
         "tau_gov": 0.8,
         "tau_mech": 1.5,
         "droop": 4.0,
-        "ramp_up": 1.5,         # Turbines can ramp faster
+        "ramp_up": 1.5,
         "ramp_down": 2.0,
         "xd_pp": 0.18,
         "hr": 9.63,
@@ -384,11 +372,7 @@ LOAD_PROFILES = {
 }
 
 def create_load_profile(profile_name, t, params):
-    """
-    Generate load profile based on selected pattern.
-    
-    Returns array of load values (as deviation from base) for each time point.
-    """
+    """Generate load profile based on selected pattern."""
     profile = LOAD_PROFILES[profile_name]
     P_spike = params['P_spike']
     t_start = params.get('t_start', 1.0)
@@ -397,24 +381,20 @@ def create_load_profile(profile_name, t, params):
     load = np.zeros_like(t)
     
     if profile['type'] == 'pulse':
-        # Single pulse
         mask = (t >= t_start) & (t < t_start + duration)
         load[mask] = P_spike
         
     elif profile['type'] == 'step':
-        # Step change (sustained)
         mask = t >= t_start
         load[mask] = P_spike
         
     elif profile['type'] == 'pulse_train':
-        # Periodic pulses
         interval = profile.get('interval', 60.0)
         for t_pulse in np.arange(t_start, t[-1], interval):
             mask = (t >= t_pulse) & (t < t_pulse + duration)
             load[mask] = P_spike
             
     elif profile['type'] == 'staircase':
-        # Sequential steps
         steps = profile.get('steps', 4)
         step_interval = profile.get('step_interval', 5.0)
         step_size = P_spike / steps
@@ -425,7 +405,6 @@ def create_load_profile(profile_name, t, params):
             load[mask] = step_size * (i + 1)
             
     elif profile['type'] == 'random':
-        # Random pulses (seeded for reproducibility)
         np.random.seed(42)
         avg_interval = profile.get('avg_interval', 10.0)
         avg_duration = profile.get('avg_duration', 2.0)
@@ -444,174 +423,546 @@ def create_load_profile(profile_name, t, params):
 
 
 # ==============================================================================
-# 3. ADVANCED PHYSICS ENGINE
+# 3. PHYSICS ENGINE
 # ==============================================================================
 
 def system_dynamics_v2(y, t, params):
-    """
-    Enhanced system dynamics with:
-    - Second-order governor model with droop
-    - Ramp rate limits
-    - Voltage dynamics (simplified)
-    - BESS with SOC tracking
-    
-    States:
-    y[0] = Δf (frequency deviation, Hz)
-    y[1] = P_mech (mechanical power, MW)
-    y[2] = P_gov (governor setpoint, MW)
-    y[3] = P_bess (BESS power, MW)
-    y[4] = V_pu (voltage in p.u.)
-    """
+    """Enhanced system dynamics with 2nd-order governor and voltage."""
     delta_f, p_mech, p_gov, p_bess, v_pu = y
     
-    # === Extract parameters ===
     f0 = 60.0
     H = max(params['H'], 0.1)
-    D = params.get('D', 1.0)  # Damping coefficient
-    S_base = max(params['S_base'], 1.0)  # System MVA
+    D = params.get('D', 1.0)
+    S_base = max(params['S_base'], 1.0)
     
-    # Governor parameters
-    R = params['droop'] / 100.0  # Droop as fraction
+    R = params['droop'] / 100.0
     T_gov = max(params['T_gov'], 0.05)
     T_mech = max(params['T_mech'], 0.1)
     P_max = params['P_max']
     ramp_up = params['ramp_up']
     ramp_down = params['ramp_down']
     
-    # BESS parameters
     P_bess_max = params['P_bess_max']
     T_bess = max(params['T_bess'], 0.02)
     bess_enabled = params['bess_enabled']
     
-    # Electrical parameters
-    X_eq = params.get('X_eq', 0.15)  # Equivalent reactance
+    X_eq = params.get('X_eq', 0.15)
     
-    # === Load calculation ===
-    # Get load from pre-computed profile (interpolated)
     t_profile = params['t_profile']
     load_profile = params['load_profile']
     P_base = params['P_base']
     
-    # Interpolate load at current time
     P_load_dev = np.interp(t, t_profile, load_profile)
     P_load = P_base + P_load_dev
     
-    # Voltage-dependent load (IT loads are constant power, α ≈ 0)
-    # For mixed loads, use α = 1.0
     alpha_v = params.get('alpha_v', 0.5)
     P_load_actual = P_load * (v_pu ** alpha_v)
     
-    # === Governor dynamics (2nd order with droop) ===
-    # Frequency error signal
     freq_error_pu = -delta_f / f0
-    
-    # Governor reference (droop characteristic)
-    # P_ref = P_base + (1/R) * freq_error
     P_ref_droop = P_base + (1.0 / R) * freq_error_pu * P_max
     P_ref = np.clip(P_ref_droop, 0, P_max)
     
-    # Governor dynamics (first order)
     dP_gov_dt = (P_ref - p_gov) / T_gov
     
-    # === Mechanical power with ramp limits ===
     delta_p_desired = (p_gov - p_mech) / T_mech
-    
-    # Apply ramp limits
     if delta_p_desired > 0:
         delta_p = min(delta_p_desired, ramp_up)
     else:
         delta_p = max(delta_p_desired, -ramp_down)
-    
     dP_mech_dt = delta_p
     
-    # === BESS dynamics ===
     if bess_enabled and P_bess_max > 0:
-        # BESS target: cover the deficit between load and mechanical power
         P_deficit = P_load_actual - p_mech
-        
-        # Fast frequency response component
-        freq_response = -delta_f * P_bess_max * 2.0  # Synthetic inertia
-        
-        # Combined target
+        freq_response = -delta_f * P_bess_max * 2.0
         P_bess_target = P_deficit + freq_response
         P_bess_target = np.clip(P_bess_target, -P_bess_max, P_bess_max)
-        
         dP_bess_dt = (P_bess_target - p_bess) / T_bess
     else:
-        dP_bess_dt = -p_bess / 0.1  # Decay to zero if disabled
+        dP_bess_dt = -p_bess / 0.1
     
-    # === Swing equation (frequency) ===
     P_acc = p_mech + p_bess - P_load_actual
-    
-    # Include damping
     P_damping = D * delta_f
-    
     dF_dt = ((P_acc - P_damping) / S_base) * (f0 / (2 * H))
     
-    # === Voltage dynamics (simplified) ===
-    # ΔV ≈ -X * ΔQ / V ≈ -X * ΔP * tan(φ) / V
-    # For simplicity, assume reactive power proportional to active power imbalance
-    Q_imbalance = (P_load_actual - p_mech - p_bess) * 0.3  # Approximate Q
-    
+    Q_imbalance = (P_load_actual - p_mech - p_bess) * 0.3
     dV_dt = -X_eq * Q_imbalance / (v_pu * S_base * 10)
-    
-    # Limit voltage rate of change
     dV_dt = np.clip(dV_dt, -0.5, 0.5)
     
     return [dF_dt, dP_mech_dt, dP_gov_dt, dP_bess_dt, dV_dt]
 
 
 def calculate_voltage_sag(P_step_mw, X_d_pp, n_gens, S_base):
-    """
-    Calculate instantaneous voltage sag during step load.
-    
-    ΔV% ≈ (P_step / S_system) × X''d × 100
-    
-    For parallel generators: X_eq = X''d / sqrt(N)
-    """
+    """Calculate instantaneous voltage sag during step load."""
     if n_gens <= 0 or S_base <= 0:
         return 0.0
-    
     X_eq = X_d_pp / np.sqrt(n_gens)
     voltage_sag_pct = (P_step_mw / S_base) * X_eq * 100
-    
     return voltage_sag_pct
 
 
 def calculate_rocof(freq, time):
-    """
-    Calculate Rate of Change of Frequency (ROCOF).
-    
-    Returns maximum |df/dt| in Hz/s
-    """
+    """Calculate Rate of Change of Frequency (ROCOF)."""
     if len(freq) < 2:
         return 0.0
-    
     dt = np.diff(time)
     df = np.diff(freq)
-    
-    # Avoid division by zero
     dt = np.where(dt == 0, 1e-6, dt)
-    
     rocof = df / dt
-    
     return np.max(np.abs(rocof))
 
 
 # ==============================================================================
-# 4. INPUT SIDEBAR
+# 4. SCENARIO MANAGEMENT (SAVE/LOAD)
+# ==============================================================================
+
+def get_current_scenario():
+    """Capture current configuration as a scenario dictionary."""
+    return {
+        "version": "6.1",
+        "timestamp": datetime.now().isoformat(),
+        "source": "CAT Transient Stability Analyzer",
+        "load_config": {
+            "it_load_mw": p_it,
+            "auxiliaries_pct": dc_aux,
+            "base_load_pct": base_load_pct,
+            "step_load_pct": step_req_pct,
+            "gross_load_mw": p_gross_total,
+            "spike_mw": step_mw,
+        },
+        "load_profile": {
+            "name": load_profile_name,
+            "duration_s": pulse_duration,
+        },
+        "generation": {
+            "model": gen_model,
+            "units": n_gens_op,
+            "inertia_h": h_const,
+            "droop_pct": droop_pct,
+            "tau_gov": tau_gov,
+            "tau_mech": tau_mech,
+        },
+        "bess": {
+            "enabled": enable_bess,
+            "power_mw": bess_cap_manual if enable_bess else 0,
+            "response_ms": bess_response_ms,
+            "duration_min": bess_duration_min,
+        },
+        "limits": {
+            "freq_min_hz": nadir_limit,
+            "freq_max_hz": overshoot_limit,
+            "voltage_min_pu": voltage_min,
+            "rocof_max_hz_s": rocof_limit,
+        },
+        "economics": {
+            "gas_price_mmbtu": fuel_price,
+            "operating_hours": op_hours,
+            "capex_gen_kw": capex_gen,
+            "capex_bess_kw": capex_bess_kw,
+            "capex_bess_kwh": capex_bess_kwh,
+            "discount_rate": discount_rate,
+            "project_years": project_years,
+        }
+    }
+
+
+def scenario_to_json(scenario):
+    """Convert scenario to JSON string."""
+    return json.dumps(scenario, indent=2)
+
+
+def parse_size_solution_config(config_text):
+    """
+    Parse configuration from CAT Size Solution.
+    Accepts JSON format with specific fields.
+    """
+    try:
+        config = json.loads(config_text)
+        return {
+            "valid": True,
+            "it_load_mw": config.get("it_load_mw", config.get("load_config", {}).get("it_load_mw", 100)),
+            "auxiliaries_pct": config.get("pue_overhead_pct", config.get("load_config", {}).get("auxiliaries_pct", 15)),
+            "base_load_pct": config.get("base_load_pct", config.get("load_config", {}).get("base_load_pct", 50)),
+            "step_load_pct": config.get("step_load_pct", config.get("load_config", {}).get("step_load_pct", 40)),
+            "generator_model": config.get("generator_model", config.get("generation", {}).get("model", "G3520FR (2.5 MW)")),
+            "n_generators": config.get("n_generators", config.get("generation", {}).get("units", 50)),
+            "bess_power_mw": config.get("bess_power_mw", config.get("bess", {}).get("power_mw", 0)),
+            "bess_enabled": config.get("bess_enabled", config.get("bess", {}).get("enabled", True)),
+        }
+    except Exception as e:
+        return {"valid": False, "error": str(e)}
+
+
+# ==============================================================================
+# 5. PDF REPORT GENERATION
+# ==============================================================================
+
+def generate_pdf_report(results, scenario):
+    """Generate comprehensive PDF report."""
+    if not HAS_REPORTLAB:
+        return None
+    
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter, 
+                           leftMargin=0.75*inch, rightMargin=0.75*inch,
+                           topMargin=0.75*inch, bottomMargin=0.75*inch)
+    
+    # Styles
+    styles = getSampleStyleSheet()
+    styles.add(ParagraphStyle(
+        name='CATTitle',
+        parent=styles['Heading1'],
+        fontSize=24,
+        textColor=HexColor('#FFCD00'),
+        spaceAfter=20,
+        alignment=TA_CENTER
+    ))
+    styles.add(ParagraphStyle(
+        name='CATSubtitle',
+        parent=styles['Normal'],
+        fontSize=12,
+        textColor=HexColor('#666666'),
+        alignment=TA_CENTER,
+        spaceAfter=30
+    ))
+    styles.add(ParagraphStyle(
+        name='SectionHeader',
+        parent=styles['Heading2'],
+        fontSize=14,
+        textColor=HexColor('#1A1A1A'),
+        spaceBefore=20,
+        spaceAfter=10,
+        backColor=HexColor('#FFCD00'),
+        borderPadding=5
+    ))
+    styles.add(ParagraphStyle(
+        name='BodyText2',
+        parent=styles['Normal'],
+        fontSize=10,
+        spaceAfter=8
+    ))
+    
+    story = []
+    
+    # === COVER ===
+    story.append(Spacer(1, 1*inch))
+    
+    # Header bar
+    header_data = [['⚡ CAT TRANSIENT STABILITY REPORT']]
+    header_table = Table(header_data, colWidths=[6.5*inch])
+    header_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), HexColor('#1A1A1A')),
+        ('TEXTCOLOR', (0, 0), (-1, -1), HexColor('#FFCD00')),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 18),
+        ('TOPPADDING', (0, 0), (-1, -1), 15),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 15),
+    ]))
+    story.append(header_table)
+    story.append(Spacer(1, 0.5*inch))
+    
+    # Project info
+    story.append(Paragraph(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}", styles['CATSubtitle']))
+    story.append(Spacer(1, 0.3*inch))
+    
+    # Executive summary
+    stability_status = "✅ STABLE" if results['is_stable'] else "❌ UNSTABLE"
+    summary_data = [
+        ['STABILITY STATUS', stability_status],
+        ['IT Load', f"{scenario['load_config']['it_load_mw']:.0f} MW"],
+        ['Generator Model', scenario['generation']['model']],
+        ['Fleet Size', f"{scenario['generation']['units']} units"],
+        ['BESS Power', f"{scenario['bess']['power_mw']:.1f} MW" if scenario['bess']['enabled'] else 'Disabled'],
+        ['Load Profile', scenario['load_profile']['name']],
+    ]
+    summary_table = Table(summary_data, colWidths=[2.5*inch, 4*inch])
+    summary_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (0, -1), HexColor('#f0f0f0')),
+        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+        ('GRID', (0, 0), (-1, -1), 0.5, HexColor('#cccccc')),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('TOPPADDING', (0, 0), (-1, -1), 8),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+    ]))
+    story.append(summary_table)
+    
+    story.append(PageBreak())
+    
+    # === SECTION 1: LOAD CONFIGURATION ===
+    story.append(Paragraph("1. LOAD CONFIGURATION", styles['SectionHeader']))
+    
+    load_data = [
+        ['Parameter', 'Value', 'Unit'],
+        ['IT Load', f"{scenario['load_config']['it_load_mw']:.1f}", 'MW'],
+        ['Auxiliaries', f"{scenario['load_config']['auxiliaries_pct']:.1f}", '%'],
+        ['Gross Load', f"{scenario['load_config']['gross_load_mw']:.1f}", 'MW'],
+        ['Base Load', f"{scenario['load_config']['base_load_pct']:.1f}", '%'],
+        ['AI Spike', f"{scenario['load_config']['step_load_pct']:.1f}", '%'],
+        ['Spike Magnitude', f"{scenario['load_config']['spike_mw']:.1f}", 'MW'],
+        ['Load Profile', scenario['load_profile']['name'], '-'],
+    ]
+    load_table = Table(load_data, colWidths=[2.5*inch, 2*inch, 1.5*inch])
+    load_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), HexColor('#1A1A1A')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), white),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('GRID', (0, 0), (-1, -1), 0.5, HexColor('#cccccc')),
+        ('FONTSIZE', (0, 0), (-1, -1), 9),
+        ('ALIGN', (1, 0), (-1, -1), 'CENTER'),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [white, HexColor('#f8f8f8')]),
+    ]))
+    story.append(load_table)
+    story.append(Spacer(1, 0.3*inch))
+    
+    # === SECTION 2: GENERATION FLEET ===
+    story.append(Paragraph("2. GENERATION FLEET", styles['SectionHeader']))
+    
+    gen_data = [
+        ['Parameter', 'Value'],
+        ['Generator Model', scenario['generation']['model']],
+        ['Operating Units', f"{scenario['generation']['units']}"],
+        ['Unit Rating', f"{specs['mw']:.2f} MW"],
+        ['Total Capacity', f"{scenario['generation']['units'] * specs['mw']:.1f} MW"],
+        ['Inertia Constant (H)', f"{scenario['generation']['inertia_h']:.2f} s"],
+        ['Droop Setting', f"{scenario['generation']['droop_pct']:.1f} %"],
+        ['Governor τ', f"{scenario['generation']['tau_gov']:.2f} s"],
+        ['Mechanical τ', f"{scenario['generation']['tau_mech']:.2f} s"],
+        ['Ramp Rate (per unit)', f"{specs['ramp_up']:.2f} MW/s"],
+        ['Step Load Capability', f"{specs['step_load_max']} %"],
+    ]
+    gen_table = Table(gen_data, colWidths=[3*inch, 3*inch])
+    gen_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), HexColor('#1A1A1A')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), white),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('GRID', (0, 0), (-1, -1), 0.5, HexColor('#cccccc')),
+        ('FONTSIZE', (0, 0), (-1, -1), 9),
+        ('ALIGN', (1, 1), (1, -1), 'CENTER'),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [white, HexColor('#f8f8f8')]),
+    ]))
+    story.append(gen_table)
+    story.append(Spacer(1, 0.3*inch))
+    
+    # === SECTION 3: BESS SYSTEM ===
+    story.append(Paragraph("3. BESS SYSTEM", styles['SectionHeader']))
+    
+    if scenario['bess']['enabled']:
+        bess_data = [
+            ['Parameter', 'Value'],
+            ['Status', 'Enabled'],
+            ['Power Rating', f"{scenario['bess']['power_mw']:.1f} MW"],
+            ['Response Time', f"{scenario['bess']['response_ms']} ms"],
+            ['Duration', f"{scenario['bess']['duration_min']} min"],
+            ['Energy Capacity', f"{scenario['bess']['power_mw'] * scenario['bess']['duration_min'] / 60:.1f} MWh"],
+        ]
+    else:
+        bess_data = [
+            ['Parameter', 'Value'],
+            ['Status', 'Disabled'],
+        ]
+    
+    bess_table = Table(bess_data, colWidths=[3*inch, 3*inch])
+    bess_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), HexColor('#1A1A1A')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), white),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('GRID', (0, 0), (-1, -1), 0.5, HexColor('#cccccc')),
+        ('FONTSIZE', (0, 0), (-1, -1), 9),
+        ('ALIGN', (1, 1), (1, -1), 'CENTER'),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [white, HexColor('#f8f8f8')]),
+    ]))
+    story.append(bess_table)
+    story.append(Spacer(1, 0.3*inch))
+    
+    # === SECTION 4: STABILITY RESULTS ===
+    story.append(Paragraph("4. STABILITY ANALYSIS RESULTS", styles['SectionHeader']))
+    
+    # Stability status box
+    if results['is_stable']:
+        status_color = HexColor('#d4edda')
+        status_text = '✅ SYSTEM STABLE - All parameters within limits'
+    else:
+        status_color = HexColor('#f8d7da')
+        issues = []
+        if not results['freq_stable']:
+            issues.append('Frequency')
+        if not results['voltage_stable']:
+            issues.append('Voltage')
+        if not results['rocof_ok']:
+            issues.append('ROCOF')
+        status_text = f'❌ SYSTEM UNSTABLE - Violations: {", ".join(issues)}'
+    
+    status_data = [[status_text]]
+    status_table = Table(status_data, colWidths=[6*inch])
+    status_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), status_color),
+        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 11),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('TOPPADDING', (0, 0), (-1, -1), 12),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+    ]))
+    story.append(status_table)
+    story.append(Spacer(1, 0.2*inch))
+    
+    # Results table
+    results_data = [
+        ['Metric', 'Value', 'Limit', 'Status'],
+        ['Frequency Nadir', f"{results['freq_nadir']:.2f} Hz", f"≥ {scenario['limits']['freq_min_hz']:.1f} Hz", 
+         '✅' if results['freq_nadir'] >= scenario['limits']['freq_min_hz'] else '❌'],
+        ['Frequency Peak', f"{results['freq_peak']:.2f} Hz", f"≤ {scenario['limits']['freq_max_hz']:.1f} Hz",
+         '✅' if results['freq_peak'] <= scenario['limits']['freq_max_hz'] else '❌'],
+        ['Voltage Minimum', f"{results['voltage_min']:.3f} p.u.", f"≥ {scenario['limits']['voltage_min_pu']:.2f} p.u.",
+         '✅' if results['voltage_min'] >= scenario['limits']['voltage_min_pu'] else '❌'],
+        ['ROCOF Maximum', f"{results['rocof_max']:.2f} Hz/s", f"≤ {scenario['limits']['rocof_max_hz_s']:.1f} Hz/s",
+         '✅' if results['rocof_max'] <= scenario['limits']['rocof_max_hz_s'] else '❌'],
+        ['Voltage Sag (initial)', f"{results['voltage_sag_pct']:.1f} %", '< 10%',
+         '✅' if results['voltage_sag_pct'] < 10 else '⚠️'],
+    ]
+    
+    results_table = Table(results_data, colWidths=[1.8*inch, 1.5*inch, 1.5*inch, 0.8*inch])
+    results_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), HexColor('#1A1A1A')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), white),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('GRID', (0, 0), (-1, -1), 0.5, HexColor('#cccccc')),
+        ('FONTSIZE', (0, 0), (-1, -1), 9),
+        ('ALIGN', (1, 0), (-1, -1), 'CENTER'),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [white, HexColor('#f8f8f8')]),
+    ]))
+    story.append(results_table)
+    
+    story.append(PageBreak())
+    
+    # === SECTION 5: ECONOMICS ===
+    story.append(Paragraph("5. ECONOMIC ANALYSIS", styles['SectionHeader']))
+    
+    lcoe, capex_m = calculate_lcoe_for_report(scenario)
+    
+    econ_data = [
+        ['Metric', 'Value'],
+        ['Total CAPEX', f"${capex_m:.1f} M"],
+        ['LCOE', f"${lcoe:.4f} /kWh"],
+        ['Gas Price', f"${scenario['economics']['gas_price_mmbtu']:.2f} /MMBtu"],
+        ['Operating Hours', f"{scenario['economics']['operating_hours']:,} hrs/yr"],
+        ['Discount Rate', f"{scenario['economics']['discount_rate']*100:.1f} %"],
+        ['Project Life', f"{scenario['economics']['project_years']} years"],
+    ]
+    
+    econ_table = Table(econ_data, colWidths=[3*inch, 3*inch])
+    econ_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), HexColor('#1A1A1A')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), white),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('GRID', (0, 0), (-1, -1), 0.5, HexColor('#cccccc')),
+        ('FONTSIZE', (0, 0), (-1, -1), 9),
+        ('ALIGN', (1, 1), (1, -1), 'CENTER'),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [white, HexColor('#f8f8f8')]),
+    ]))
+    story.append(econ_table)
+    story.append(Spacer(1, 0.5*inch))
+    
+    # === DISCLAIMER ===
+    story.append(Paragraph("DISCLAIMER", styles['SectionHeader']))
+    disclaimer = """
+    This report is generated by CAT Transient Stability Analyzer for preliminary analysis purposes only.
+    Results are based on simplified models and should be validated with detailed engineering studies
+    before final design decisions. Actual system performance may vary based on site conditions,
+    equipment specifications, and installation quality. Caterpillar Inc. makes no warranties
+    regarding the accuracy or completeness of this analysis.
+    """
+    story.append(Paragraph(disclaimer, styles['BodyText2']))
+    
+    # Build PDF
+    doc.build(story)
+    buffer.seek(0)
+    return buffer.getvalue()
+
+
+def calculate_lcoe_for_report(scenario):
+    """Calculate LCOE for PDF report."""
+    gen_specs = CAT_LIBRARY.get(scenario['generation']['model'], list(CAT_LIBRARY.values())[0])
+    n_gens = scenario['generation']['units']
+    bess_mw = scenario['bess']['power_mw'] if scenario['bess']['enabled'] else 0
+    
+    gen_cap_mw = n_gens * gen_specs['mw']
+    capex_gens = gen_cap_mw * 1000 * scenario['economics']['capex_gen_kw']
+    
+    bess_energy_mwh = bess_mw * (scenario['bess']['duration_min'] / 60.0)
+    capex_bess = (bess_mw * 1000 * scenario['economics']['capex_bess_kw']) + \
+                 (bess_energy_mwh * 1000 * scenario['economics']['capex_bess_kwh'])
+    
+    total_capex = capex_gens + capex_bess
+    
+    dr = scenario['economics']['discount_rate']
+    years = scenario['economics']['project_years']
+    crf = (dr * (1 + dr)**years) / ((1 + dr)**years - 1)
+    capex_annual = total_capex * crf
+    
+    P_base = scenario['load_config']['gross_load_mw'] * (scenario['load_config']['base_load_pct'] / 100.0)
+    hr = gen_specs['hr']
+    fuel_annual = P_base * hr * scenario['economics']['gas_price_mmbtu'] * scenario['economics']['operating_hours']
+    
+    om_annual = total_capex * 0.025
+    total_mwh = P_base * scenario['economics']['operating_hours']
+    
+    lcoe = (capex_annual + fuel_annual + om_annual) / max(1, total_mwh) / 1000
+    
+    return lcoe, total_capex / 1e6
+
+
+# ==============================================================================
+# 6. INPUT SIDEBAR
 # ==============================================================================
 
 with st.sidebar:
     st.markdown("## ⚡ CAT Transient Analyzer")
-    st.caption("v6.0 - Enhanced Physics Model")
+    st.caption("v6.1 - With Save/Load & PDF Export")
+    
+    # === IMPORT FROM SIZE SOLUTION ===
+    with st.expander("🔗 Import from Size Solution", expanded=False):
+        st.markdown("**Paste JSON from CAT Size Solution:**")
+        import_text = st.text_area("Configuration JSON", height=100, 
+                                   placeholder='{"it_load_mw": 100, "n_generators": 50, ...}')
+        
+        if st.button("📥 Import Configuration", use_container_width=True):
+            if import_text.strip():
+                parsed = parse_size_solution_config(import_text)
+                if parsed['valid']:
+                    st.session_state['imported_config'] = parsed
+                    st.success("✅ Configuration imported!")
+                else:
+                    st.error(f"❌ Invalid JSON: {parsed['error']}")
+        
+        # Show imported config status
+        if 'imported_config' in st.session_state:
+            cfg = st.session_state['imported_config']
+            st.markdown(f"""
+            <div class="cat-box-import">
+            <b>Imported:</b><br>
+            • IT Load: {cfg['it_load_mw']} MW<br>
+            • Generators: {cfg['n_generators']} units<br>
+            • BESS: {cfg['bess_power_mw']:.1f} MW
+            </div>
+            """, unsafe_allow_html=True)
+            
+            if st.button("🔄 Apply Imported Values"):
+                st.session_state['apply_import'] = True
+                st.rerun()
+    
+    # Get default values (from import if available)
+    defaults = st.session_state.get('imported_config', {})
     
     # --- LOAD CONFIGURATION ---
     with st.expander("📊 1. Load Configuration", expanded=True):
-        p_it = st.number_input("IT Load (MW)", 1.0, 5000.0, 100.0, step=10.0)
-        dc_aux = st.number_input("Auxiliaries (%)", 0.0, 50.0, 15.0, step=1.0)
-        base_load_pct = st.number_input("Base Load (%)", 10.0, 100.0, 50.0, step=5.0)
-        step_req_pct = st.number_input("AI Load Spike (%)", 0.0, 100.0, 40.0, step=5.0)
+        p_it = st.number_input("IT Load (MW)", 1.0, 5000.0, 
+                               float(defaults.get('it_load_mw', 100.0)), step=10.0)
+        dc_aux = st.number_input("Auxiliaries (%)", 0.0, 50.0, 
+                                 float(defaults.get('auxiliaries_pct', 15.0)), step=1.0)
+        base_load_pct = st.number_input("Base Load (%)", 10.0, 100.0, 
+                                        float(defaults.get('base_load_pct', 50.0)), step=5.0)
+        step_req_pct = st.number_input("AI Load Spike (%)", 0.0, 100.0, 
+                                       float(defaults.get('step_load_pct', 40.0)), step=5.0)
         
         p_gross_total = p_it * (1 + dc_aux / 100.0)
         step_mw = p_it * (step_req_pct / 100.0)
@@ -643,15 +994,20 @@ with st.sidebar:
     
     # --- GENERATION FLEET ---
     with st.expander("🔧 3. Generation Fleet", expanded=True):
-        gen_model = st.selectbox("Generator Model", list(CAT_LIBRARY.keys()))
+        # Find matching model from import
+        default_model = defaults.get('generator_model', "G3520FR (2.5 MW)")
+        model_list = list(CAT_LIBRARY.keys())
+        default_idx = model_list.index(default_model) if default_model in model_list else 1
+        
+        gen_model = st.selectbox("Generator Model", model_list, index=default_idx)
         specs = CAT_LIBRARY[gen_model]
         
         st.caption(f"Type: {specs['type']} | Rating: {specs['mw']} MW")
         
         n_rec = int(np.ceil(p_gross_total / specs['mw'])) + 1
-        n_gens_op = st.number_input("Operating Units (N)", 1, 500, n_rec)
+        default_n = defaults.get('n_generators', n_rec)
+        n_gens_op = st.number_input("Operating Units (N)", 1, 500, int(default_n))
         
-        # Advanced parameters (collapsible)
         with st.container():
             st.markdown("**Advanced Parameters:**")
             col1, col2 = st.columns(2)
@@ -662,13 +1018,13 @@ with st.sidebar:
                 tau_gov = st.number_input("τ_gov (s)", 0.05, 5.0, float(specs['tau_gov']), step=0.05)
                 tau_mech = st.number_input("τ_mech (s)", 0.1, 5.0, float(specs['tau_mech']), step=0.1)
         
-        # Show ramp rate info
         ramp_up_total = specs['ramp_up'] * n_gens_op
-        st.caption(f"🔺 Fleet Ramp Rate: {ramp_up_total:.1f} MW/s ({specs['ramp_up']:.2f} MW/s per unit)")
+        st.caption(f"🔺 Fleet Ramp Rate: {ramp_up_total:.1f} MW/s")
     
     # --- BESS CONFIGURATION ---
     with st.expander("🔋 4. BESS Configuration", expanded=True):
-        enable_bess = st.checkbox("Enable BESS", value=True)
+        default_bess_enabled = defaults.get('bess_enabled', True)
+        enable_bess = st.checkbox("Enable BESS", value=default_bess_enabled)
         
         if enable_bess:
             auto_size_bess = st.checkbox("Auto-Size (Match Spike)", value=True)
@@ -677,7 +1033,8 @@ with st.sidebar:
                 bess_cap_manual = step_mw
                 st.info(f"📐 Auto-sized: {bess_cap_manual:.1f} MW")
             else:
-                bess_cap_manual = st.number_input("BESS Power (MW)", 0.0, 5000.0, step_mw, step=5.0)
+                default_bess = defaults.get('bess_power_mw', step_mw)
+                bess_cap_manual = st.number_input("BESS Power (MW)", 0.0, 5000.0, float(default_bess), step=5.0)
             
             bess_response_ms = st.number_input("Response Time (ms)", 10, 2000, 50, step=10)
             bess_duration_min = st.number_input("Duration (minutes)", 5, 240, 30, step=5)
@@ -708,29 +1065,61 @@ with st.sidebar:
         capex_bess_kwh = st.number_input("BESS Energy ($/kWh)", 100, 500, 250, step=10)
         discount_rate = st.number_input("Discount Rate (%)", 1.0, 20.0, 8.0, step=0.5) / 100
         project_years = st.number_input("Project Life (years)", 5, 30, 20, step=1)
+    
+    # --- SAVE/LOAD SCENARIOS ---
+    with st.expander("💾 7. Save/Load Scenario", expanded=False):
+        scenario_name = st.text_input("Scenario Name", "My_Scenario")
+        
+        col_save, col_load = st.columns(2)
+        
+        with col_save:
+            if st.button("💾 Save", use_container_width=True):
+                scenario = get_current_scenario()
+                scenario['name'] = scenario_name
+                json_str = scenario_to_json(scenario)
+                st.download_button(
+                    "📥 Download JSON",
+                    json_str,
+                    f"{scenario_name}_{datetime.now().strftime('%Y%m%d_%H%M')}.json",
+                    "application/json",
+                    use_container_width=True
+                )
+        
+        with col_load:
+            uploaded_file = st.file_uploader("Load", type=['json'], label_visibility='collapsed')
+            if uploaded_file is not None:
+                try:
+                    loaded = json.load(uploaded_file)
+                    st.session_state['imported_config'] = {
+                        'valid': True,
+                        'it_load_mw': loaded.get('load_config', {}).get('it_load_mw', 100),
+                        'auxiliaries_pct': loaded.get('load_config', {}).get('auxiliaries_pct', 15),
+                        'base_load_pct': loaded.get('load_config', {}).get('base_load_pct', 50),
+                        'step_load_pct': loaded.get('load_config', {}).get('step_load_pct', 40),
+                        'generator_model': loaded.get('generation', {}).get('model', 'G3520FR (2.5 MW)'),
+                        'n_generators': loaded.get('generation', {}).get('units', 50),
+                        'bess_power_mw': loaded.get('bess', {}).get('power_mw', 0),
+                        'bess_enabled': loaded.get('bess', {}).get('enabled', True),
+                    }
+                    st.success("✅ Loaded! Click 'Apply' above.")
+                except Exception as e:
+                    st.error(f"Error: {e}")
 
 
 # ==============================================================================
-# 5. SIMULATION FUNCTIONS
+# 7. SIMULATION FUNCTIONS
 # ==============================================================================
 
 def run_simulation(n_gens, bess_mw, specs, sim_time=20.0):
-    """
-    Run transient stability simulation.
-    
-    Returns dictionary with all results.
-    """
-    # System parameters
+    """Run transient stability simulation."""
     gen_cap_total = n_gens * specs['mw']
-    S_base = gen_cap_total / 0.8  # MVA (assuming 0.8 pf)
+    S_base = gen_cap_total / 0.8
     P_base = p_gross_total * (base_load_pct / 100.0)
     P_max = gen_cap_total
     
-    # Time vector
     dt = 0.01
     t = np.arange(0, sim_time, dt)
     
-    # Pre-compute load profile
     load_params = {
         'P_spike': step_mw,
         't_start': 1.0,
@@ -738,44 +1127,31 @@ def run_simulation(n_gens, bess_mw, specs, sim_time=20.0):
     }
     load_profile = create_load_profile(load_profile_name, t, load_params)
     
-    # Simulation parameters
     sim_params = {
-        # System
-        'H': h_const * n_gens,  # Total system inertia
+        'H': h_const * n_gens,
         'D': 1.0,
         'S_base': S_base,
         'P_base': P_base,
         'P_max': P_max,
-        
-        # Governor
         'droop': droop_pct,
         'T_gov': tau_gov,
         'T_mech': tau_mech,
         'ramp_up': specs['ramp_up'] * n_gens,
         'ramp_down': specs['ramp_down'] * n_gens,
-        
-        # BESS
         'P_bess_max': bess_mw,
         'T_bess': bess_response_ms / 1000.0,
         'bess_enabled': enable_bess and bess_mw > 0,
-        
-        # Electrical
         'X_eq': specs['xd_pp'] / np.sqrt(max(1, n_gens)),
         'alpha_v': 0.5,
-        
-        # Load profile
         't_profile': t,
         'load_profile': load_profile,
     }
     
-    # Initial conditions: [Δf, P_mech, P_gov, P_bess, V_pu]
     y0 = [0.0, P_base, P_base, 0.0, 1.0]
     
-    # Run simulation
     try:
         sol = odeint(system_dynamics_v2, y0, t, args=(sim_params,))
         
-        # Extract results
         freq = 60.0 + sol[:, 0]
         p_mech = sol[:, 1]
         p_gov = sol[:, 2]
@@ -783,18 +1159,15 @@ def run_simulation(n_gens, bess_mw, specs, sim_time=20.0):
         v_pu = sol[:, 4]
         p_load = P_base + load_profile
         
-        # Metrics
         freq_nadir = np.min(freq)
         freq_peak = np.max(freq)
         voltage_min_result = np.min(v_pu)
         rocof_max = calculate_rocof(freq, t)
         
-        # Stability checks
         freq_stable = (freq_nadir >= nadir_limit) and (freq_peak <= overshoot_limit)
         voltage_stable = voltage_min_result >= voltage_min
         rocof_ok = rocof_max <= rocof_limit
         
-        # Instantaneous voltage sag (electrical calculation)
         voltage_sag_pct = calculate_voltage_sag(step_mw, specs['xd_pp'], n_gens, S_base)
         
         is_stable = freq_stable and voltage_stable and rocof_ok
@@ -833,21 +1206,17 @@ def calculate_lcoe(n_gens, bess_mw, is_stable):
     """Calculate Levelized Cost of Energy."""
     gen_cap_mw = n_gens * specs['mw']
     
-    # CAPEX
     capex_gens = gen_cap_mw * 1000 * capex_gen
     bess_energy_mwh = bess_mw * (bess_duration_min / 60.0)
     capex_bess = (bess_mw * 1000 * capex_bess_kw) + (bess_energy_mwh * 1000 * capex_bess_kwh)
     total_capex = capex_gens + capex_bess
     
-    # Annualized CAPEX
     crf = (discount_rate * (1 + discount_rate)**project_years) / ((1 + discount_rate)**project_years - 1)
     capex_annual = total_capex * crf
     
-    # Fuel cost
     P_base = p_gross_total * (base_load_pct / 100.0)
     load_factor = P_base / max(0.1, gen_cap_mw)
     
-    # Part-load heat rate penalty
     if load_factor >= 0.75:
         hr_factor = 1.0
     elif load_factor >= 0.50:
@@ -860,25 +1229,20 @@ def calculate_lcoe(n_gens, bess_mw, is_stable):
     hr_actual = specs['hr'] * hr_factor
     fuel_annual = P_base * hr_actual * fuel_price * op_hours
     
-    # O&M
-    om_annual = total_capex * 0.025  # 2.5% of CAPEX
-    
-    # Total energy
+    om_annual = total_capex * 0.025
     total_mwh = P_base * op_hours
     
-    # LCOE
     lcoe_mwh = (capex_annual + fuel_annual + om_annual) / max(1, total_mwh)
     lcoe_kwh = lcoe_mwh / 1000.0
     
-    # Penalty for instability
     if not is_stable:
-        lcoe_kwh += 1.0  # $1/kWh penalty
+        lcoe_kwh += 1.0
     
     return lcoe_kwh, total_capex / 1e6
 
 
 # ==============================================================================
-# 6. MAIN UI
+# 8. MAIN UI
 # ==============================================================================
 
 st.markdown("""
@@ -908,11 +1272,13 @@ with tab1:
             results = run_simulation(n_gens_op, bess_cap_manual if enable_bess else 0, specs)
         
         if results['success']:
-            # Results columns
+            # Store results for PDF
+            st.session_state['last_results'] = results
+            st.session_state['last_scenario'] = get_current_scenario()
+            
             col_plot, col_metrics = st.columns([2.5, 1])
             
             with col_plot:
-                # Create Plotly figure with 3 subplots
                 fig = make_subplots(
                     rows=3, cols=1,
                     shared_xaxes=True,
@@ -922,7 +1288,6 @@ with tab1:
                 
                 t = results['t']
                 
-                # Frequency plot
                 fig.add_trace(
                     go.Scatter(x=t, y=results['freq'], name='Frequency', 
                               line=dict(color='#1f77b4', width=2)),
@@ -934,7 +1299,6 @@ with tab1:
                              annotation_text=f"Max: {overshoot_limit} Hz", row=1, col=1)
                 fig.add_hline(y=60.0, line_dash="dot", line_color="gray", row=1, col=1)
                 
-                # Power plot
                 fig.add_trace(
                     go.Scatter(x=t, y=results['p_load'], name='Load', 
                               line=dict(color='black', width=2, dash='dash')),
@@ -952,7 +1316,6 @@ with tab1:
                         row=2, col=1
                     )
                 
-                # Voltage plot
                 fig.add_trace(
                     go.Scatter(x=t, y=results['v_pu'], name='Voltage', 
                               line=dict(color='#d62728', width=2)),
@@ -962,7 +1325,6 @@ with tab1:
                              annotation_text=f"Min: {voltage_min} p.u.", row=3, col=1)
                 fig.add_hline(y=1.0, line_dash="dot", line_color="gray", row=3, col=1)
                 
-                # Layout
                 fig.update_layout(
                     height=700,
                     showlegend=True,
@@ -980,7 +1342,6 @@ with tab1:
             with col_metrics:
                 st.markdown("### 📊 Results")
                 
-                # Stability status
                 if results['is_stable']:
                     st.markdown('<div class="cat-box-success">✅ <b>SYSTEM STABLE</b></div>', 
                                unsafe_allow_html=True)
@@ -998,7 +1359,6 @@ with tab1:
                 
                 st.markdown("---")
                 
-                # Key metrics
                 col_m1, col_m2 = st.columns(2)
                 
                 with col_m1:
@@ -1019,15 +1379,34 @@ with tab1:
                 
                 st.markdown("---")
                 
-                # Voltage sag (electrical)
                 st.metric("Initial Voltage Sag", f"{results['voltage_sag_pct']:.1f}%",
                          "Instantaneous")
                 
-                # Economics
                 lcoe, capex_m = calculate_lcoe(n_gens_op, bess_cap_manual if enable_bess else 0, 
                                                results['is_stable'])
                 st.metric("LCOE", f"${lcoe:.4f}/kWh")
                 st.metric("CAPEX", f"${capex_m:.1f}M")
+                
+                # === PDF EXPORT BUTTON ===
+                st.markdown("---")
+                st.markdown("### 📄 Export Report")
+                
+                if HAS_REPORTLAB:
+                    if st.button("📥 Generate PDF Report", type="secondary", use_container_width=True):
+                        with st.spinner("Generating PDF..."):
+                            scenario = get_current_scenario()
+                            pdf_data = generate_pdf_report(results, scenario)
+                            
+                            if pdf_data:
+                                st.download_button(
+                                    "📄 Download PDF",
+                                    pdf_data,
+                                    f"Transient_Report_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
+                                    "application/pdf",
+                                    use_container_width=True
+                                )
+                else:
+                    st.warning("PDF export requires reportlab. Add to requirements.txt")
                 
                 # Tips
                 if not results['is_stable']:
@@ -1044,7 +1423,7 @@ with tab1:
                         st.info("→ Add generators or reduce step load")
                     
                     if not results['rocof_ok']:
-                        st.info("→ Increase system inertia (more generators or synthetic inertia)")
+                        st.info("→ Increase system inertia")
         
         else:
             st.error(f"Simulation failed: {results.get('error', 'Unknown error')}")
@@ -1071,7 +1450,6 @@ with tab2:
     if st.button("🔎 Run Optimization", type="primary"):
         progress_bar = st.progress(0, text="Initializing...")
         
-        # Search ranges
         mw_base = p_gross_total * (base_load_pct / 100.0)
         mw_peak = p_gross_total * ((base_load_pct + step_req_pct) / 100.0)
         
@@ -1090,7 +1468,6 @@ with tab2:
         
         for n in n_range:
             for b_mw in b_range:
-                # Run simulation
                 sim_result = run_simulation(n, b_mw, specs, sim_time=15.0)
                 
                 if sim_result['success']:
@@ -1113,12 +1490,10 @@ with tab2:
         
         progress_bar.empty()
         
-        # Process results
         df_opt = pd.DataFrame(results_list)
         df_stable = df_opt[df_opt['Stable'] == True]
         
         if not df_stable.empty:
-            # Find optimal
             if opt_objective == "Minimum LCOE":
                 best = df_stable.loc[df_stable['LCOE'].idxmin()]
             elif opt_objective == "Minimum CAPEX":
@@ -1126,7 +1501,6 @@ with tab2:
             else:
                 best = df_stable.loc[df_stable['Gens'].idxmin()]
             
-            # Display results
             st.markdown("### ✅ Optimal Configuration Found")
             
             col_r1, col_r2, col_r3, col_r4 = st.columns(4)
@@ -1163,7 +1537,6 @@ with tab2:
                     <div style="font-size:11px">Total investment</div>
                 </div>""", unsafe_allow_html=True)
             
-            # Comparison with gen-only
             df_gen_only = df_stable[df_stable['BESS_MW'] == 0]
             
             if not df_gen_only.empty:
@@ -1179,18 +1552,16 @@ with tab2:
                 
                 with col_cmp2:
                     if lcoe_savings > 0:
-                        st.success(f"**Hybrid Savings:** ${lcoe_savings:.4f}/kWh ({lcoe_savings/gen_only_best['LCOE']*100:.1f}%) | {int(gen_savings)} fewer generators")
+                        st.success(f"**Hybrid Savings:** ${lcoe_savings:.4f}/kWh | {int(gen_savings)} fewer generators")
                     else:
-                        st.warning("Gen-only solution is more economical for this scenario")
+                        st.warning("Gen-only solution is more economical")
             else:
                 st.warning("⚠️ No stable gen-only configuration found. BESS is required.")
             
-            # Optimization landscape
             st.markdown("### 🗺️ Optimization Landscape")
             
             fig_opt = go.Figure()
             
-            # Unstable points
             unstable = df_opt[~df_opt['Stable']]
             fig_opt.add_trace(go.Scatter(
                 x=unstable['Gens'], y=unstable['BESS_MW'],
@@ -1199,7 +1570,6 @@ with tab2:
                 name='Unstable'
             ))
             
-            # Stable points (colored by LCOE)
             fig_opt.add_trace(go.Scatter(
                 x=df_stable['Gens'], y=df_stable['BESS_MW'],
                 mode='markers',
@@ -1215,7 +1585,6 @@ with tab2:
                 hoverinfo='text+x+y'
             ))
             
-            # Optimal point
             fig_opt.add_trace(go.Scatter(
                 x=[best['Gens']], y=[best['BESS_MW']],
                 mode='markers',
@@ -1232,12 +1601,11 @@ with tab2:
             
             st.plotly_chart(fig_opt, use_container_width=True)
             
-            # Data table
             with st.expander("📋 All Results"):
                 st.dataframe(df_opt.sort_values('LCOE'), use_container_width=True)
         
         else:
-            st.error("❌ No stable configuration found. Try increasing generator count or BESS size.")
+            st.error("❌ No stable configuration found.")
 
 
 # ==============================================================================
@@ -1245,9 +1613,7 @@ with tab2:
 # ==============================================================================
 with tab3:
     st.markdown("### 📊 Technology Comparison")
-    st.caption("Compare different generator models for the same load profile")
     
-    # Select models to compare
     models_to_compare = st.multiselect(
         "Select Generator Models",
         list(CAT_LIBRARY.keys()),
@@ -1259,11 +1625,8 @@ with tab3:
         
         for model_name in models_to_compare:
             model_specs = CAT_LIBRARY[model_name]
-            
-            # Calculate recommended fleet size
             n_gens = int(np.ceil(p_gross_total / model_specs['mw'])) + 1
             
-            # Run with and without BESS
             for bess_enabled_cmp in [False, True]:
                 bess_mw_cmp = step_mw if bess_enabled_cmp else 0
                 
@@ -1289,7 +1652,6 @@ with tab3:
         if comparison_results:
             df_comparison = pd.DataFrame(comparison_results)
             
-            # Summary table
             st.dataframe(
                 df_comparison.style.format({
                     'Freq Nadir (Hz)': '{:.2f}',
@@ -1302,7 +1664,6 @@ with tab3:
                 use_container_width=True
             )
             
-            # LCOE comparison chart
             st.markdown("#### LCOE Comparison")
             
             df_stable_cmp = df_comparison[df_comparison['Stable'] == '✅']
@@ -1330,7 +1691,7 @@ with tab3:
                 
                 st.plotly_chart(fig_cmp, use_container_width=True)
             else:
-                st.warning("No stable configurations found for comparison")
+                st.warning("No stable configurations found")
 
 
 # ==============================================================================
@@ -1339,8 +1700,8 @@ with tab3:
 st.markdown("---")
 st.markdown("""
 <div style="text-align: center; color: #666;">
-    <p><b>⚡ CAT Transient Stability Analyzer v6.0</b></p>
-    <p>Advanced simulation with 2nd-order governor model, voltage dynamics, and AI workload profiles</p>
+    <p><b>⚡ CAT Transient Stability Analyzer v6.1</b></p>
+    <p>Enhanced with PDF Export, Save/Load Scenarios, and Size Solution Integration</p>
     <p>Caterpillar Electric Power | 2026</p>
 </div>
 """, unsafe_allow_html=True)
