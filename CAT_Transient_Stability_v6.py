@@ -29,6 +29,7 @@ st.set_page_config(
 
 # --- CAT BRANDING CSS ---
 st.markdown("""
+
 <style>
     /* CAT Color Palette */
     :root {
@@ -51,23 +52,28 @@ st.markdown("""
         margin: 0;
     }
     
-    /* --- SIDEBAR STYLING FIX --- */
+    /* --- SIDEBAR STYLING FIX (DEFINITIVO) --- */
     [data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #1A1A1A 0%, #2D2D2D 100%);
+        background-color: #1A1A1A !important;
     }
     
-    /* Títulos y Etiquetas */
+    /* Fuerza TODOS los textos del sidebar a ser legibles */
+    [data-testid="stSidebar"] * {
+        color: #E0E0E0 !important; /* Blanco hueso para texto general */
+    }
+    
+    /* Títulos y Etiquetas en Amarillo CAT */
     [data-testid="stSidebar"] h1, 
     [data-testid="stSidebar"] h2, 
     [data-testid="stSidebar"] h3, 
     [data-testid="stSidebar"] label { 
         color: #FFCD00 !important;
-        font-weight: bold;
     }
     
-    /* Texto de ayuda */
-    [data-testid="stSidebar"] .stMarkdown p {
-        color: #E0E0E0 !important;
+    /* Arreglo específico para Checkboxes y Radios que a veces se quedan oscuros */
+    [data-testid="stSidebar"] [data-testid="stCheckbox"] label span p,
+    [data-testid="stSidebar"] [data-testid="stRadio"] label span p {
+        color: #FFFFFF !important;
     }
 
     /* Inputs y Selectbox (Fondo Gris Oscuro + Texto Blanco) */
@@ -78,12 +84,8 @@ st.markdown("""
         border-color: #FFCD00 !important;
     }
     
-    /* Texto dentro de los inputs */
-    [data-testid="stSidebar"] input {
-        color: white !important;
-    }
-    
-    /* Texto seleccionado en dropdowns */
+    /* Texto seleccionado y valores */
+    [data-testid="stSidebar"] input,
     [data-testid="stSidebar"] div[data-baseweb="select"] span {
         color: white !important;
     }
@@ -91,11 +93,7 @@ st.markdown("""
     /* Result boxes */
     .cat-box-success { background-color: #d4edda; padding: 15px; border-radius: 8px; border-left: 5px solid #28a745; color: #155724; margin-bottom: 10px; }
     .cat-box-fail { background-color: #f8d7da; padding: 15px; border-radius: 8px; border-left: 5px solid #dc3545; color: #721c24; margin-bottom: 10px; }
-    .cat-box-warning { background-color: #fff3cd; padding: 15px; border-radius: 8px; border-left: 5px solid #FFCD00; color: #856404; margin-bottom: 10px; }
     .cat-box-opt { background-color: #e3f2fd; padding: 15px; border-radius: 8px; border-left: 5px solid #0d47a1; color: #084298; }
-    
-    div[data-testid="stMetricValue"] { font-size: 28px !important; font-weight: bold !important; }
-    .stTabs [aria-selected="true"] { background-color: #FFCD00 !important; color: #1A1A1A !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -1059,18 +1057,23 @@ def run_simulation(n_gens, bess_mw, specs, sim_time=20.0):
         
         is_stable = freq_stable and voltage_stable and rocof_ok
 
-        # --- NUEVA VALIDACIÓN MECÁNICA ---
-        # Calculamos cuánto golpe recibe CADA máquina individualmente
-        step_mw_per_unit = step_mw / n_gens
+        # --- VALIDACIÓN MECÁNICA (CORREGIDA CON BESS) ---
+        # 1. Calculamos el golpe NETO que realmente ven los generadores
+        # Si el BESS cubre todo el golpe, el motor ve 0 MW de impacto instantáneo.
+        step_mw_net = max(0, step_mw - bess_mw)
+        
+        # 2. Repartimos ese golpe neto entre las máquinas
+        step_mw_per_unit = step_mw_net / n_gens
         step_pct_actual = (step_mw_per_unit / specs['mw']) * 100
         step_load_limit = specs['step_load_max']
         
-        # Si el golpe real > límite del fabricante, el motor se ahoga
+        # 3. Verificamos si VIOLA el límite mecánico
         mechanical_overload = step_pct_actual > step_load_limit
         
         if mechanical_overload:
             is_stable = False
-            fail_reason = f"Mechanical Step Limit Exceeded ({step_pct_actual:.1f}% > {step_load_limit}%)"
+            # Mensaje detallado
+            fail_reason = f"Mechanical Step Limit Exceeded ({step_pct_actual:.1f}% > {step_load_limit}%) - BESS insufficient"
         else:
             fail_reason = None
         # ---------------------------------
