@@ -50,165 +50,52 @@ st.markdown("""
         color: #FFCD00 !important;
         margin: 0;
     }
-    .main-header p {
-        color: #CCCCCC !important;
-        margin: 0;
-    }
     
-    /* ============================================ */
-    /* SIDEBAR - DARK THEME WITH YELLOW ACCENTS    */
-    /* ============================================ */
-    
+    /* --- SIDEBAR STYLING FIX --- */
     [data-testid="stSidebar"] {
         background: linear-gradient(180deg, #1A1A1A 0%, #2D2D2D 100%);
     }
     
-    /* ALL sidebar text should be white by default */
-    [data-testid="stSidebar"],
-    [data-testid="stSidebar"] * {
-        color: #FFFFFF !important;
-    }
-    
-    /* Sidebar titles - Yellow */
-    [data-testid="stSidebar"] h1,
-    [data-testid="stSidebar"] h2,
-    [data-testid="stSidebar"] h3 {
+    /* Títulos y Etiquetas */
+    [data-testid="stSidebar"] h1, 
+    [data-testid="stSidebar"] h2, 
+    [data-testid="stSidebar"] h3, 
+    [data-testid="stSidebar"] label { 
         color: #FFCD00 !important;
+        font-weight: bold;
     }
     
-    /* ============================================ */
-    /* EXPANDERS - YELLOW HEADERS                   */
-    /* ============================================ */
-    
-    /* Expander container styling */
-    [data-testid="stSidebar"] [data-testid="stExpander"] {
-        background-color: rgba(255, 205, 0, 0.08) !important;
-        border: 1px solid rgba(255, 205, 0, 0.25) !important;
-        border-radius: 8px !important;
-        margin-bottom: 8px !important;
+    /* Texto de ayuda */
+    [data-testid="stSidebar"] .stMarkdown p {
+        color: #E0E0E0 !important;
+    }
+
+    /* Inputs y Selectbox (Fondo Gris Oscuro + Texto Blanco) */
+    [data-testid="stSidebar"] [data-baseweb="select"] > div,
+    [data-testid="stSidebar"] [data-baseweb="input"] > div {
+        background-color: #333333 !important;
+        color: white !important;
+        border-color: #FFCD00 !important;
     }
     
-    /* Expander header text - FORCE YELLOW */
-    [data-testid="stSidebar"] [data-testid="stExpander"] summary p,
-    [data-testid="stSidebar"] [data-testid="stExpander"] summary span,
-    [data-testid="stSidebar"] [data-testid="stExpander"] summary div,
-    [data-testid="stSidebar"] [data-testid="stExpander"] [data-testid="stMarkdownContainer"] p,
-    [data-testid="stSidebar"] details > summary > span,
-    [data-testid="stSidebar"] details > summary > div {
-        color: #FFCD00 !important;
-        font-weight: 600 !important;
-        font-size: 14px !important;
+    /* Texto dentro de los inputs */
+    [data-testid="stSidebar"] input {
+        color: white !important;
     }
     
-    /* Expander arrow/icon */
-    [data-testid="stSidebar"] [data-testid="stExpander"] svg {
-        fill: #FFCD00 !important;
-        stroke: #FFCD00 !important;
+    /* Texto seleccionado en dropdowns */
+    [data-testid="stSidebar"] div[data-baseweb="select"] span {
+        color: white !important;
     }
-    
-    /* Expander content area */
-    [data-testid="stSidebar"] [data-testid="stExpander"] [data-testid="stExpanderDetails"] {
-        border-top: 1px solid rgba(255, 205, 0, 0.2) !important;
-        padding-top: 10px !important;
-    }
-    
-    /* ============================================ */
-    /* INPUT ELEMENTS                               */
-    /* ============================================ */
-    
-    /* Input labels */
-    [data-testid="stSidebar"] .stNumberInput label,
-    [data-testid="stSidebar"] .stSelectbox label,
-    [data-testid="stSidebar"] .stCheckbox label span,
-    [data-testid="stSidebar"] .stRadio label,
-    [data-testid="stSidebar"] .stSlider label {
-        color: #FFFFFF !important;
-    }
-    
-    /* Checkbox text */
-    [data-testid="stSidebar"] .stCheckbox label p {
-        color: #FFFFFF !important;
-    }
-    
-    /* Input fields background */
-    [data-testid="stSidebar"] input,
-    [data-testid="stSidebar"] .stSelectbox > div > div {
-        background-color: #FFFFFF !important;
-        color: #1A1A1A !important;
-    }
-    
-    /* Captions - lighter gray */
-    [data-testid="stSidebar"] [data-testid="stCaptionContainer"],
-    [data-testid="stSidebar"] .stCaption,
-    [data-testid="stSidebar"] small {
-        color: #BBBBBB !important;
-    }
-    
-    /* Info/Warning boxes in sidebar */
-    [data-testid="stSidebar"] [data-testid="stAlert"] {
-        background-color: rgba(255, 205, 0, 0.15) !important;
-        border: 1px solid rgba(255, 205, 0, 0.4) !important;
-    }
-    [data-testid="stSidebar"] [data-testid="stAlert"] p {
-        color: #FFFFFF !important;
-    }
-    
+
     /* Result boxes */
-    .cat-box-success { 
-        background-color: #d4edda; 
-        padding: 15px; 
-        border-radius: 8px; 
-        border-left: 5px solid #28a745; 
-        color: #155724;
-        margin-bottom: 10px;
-    }
+    .cat-box-success { background-color: #d4edda; padding: 15px; border-radius: 8px; border-left: 5px solid #28a745; color: #155724; margin-bottom: 10px; }
+    .cat-box-fail { background-color: #f8d7da; padding: 15px; border-radius: 8px; border-left: 5px solid #dc3545; color: #721c24; margin-bottom: 10px; }
+    .cat-box-warning { background-color: #fff3cd; padding: 15px; border-radius: 8px; border-left: 5px solid #FFCD00; color: #856404; margin-bottom: 10px; }
+    .cat-box-opt { background-color: #e3f2fd; padding: 15px; border-radius: 8px; border-left: 5px solid #0d47a1; color: #084298; }
     
-    .cat-box-fail { 
-        background-color: #f8d7da; 
-        padding: 15px; 
-        border-radius: 8px; 
-        border-left: 5px solid #dc3545; 
-        color: #721c24;
-        margin-bottom: 10px;
-    }
-    
-    .cat-box-warning { 
-        background-color: #fff3cd; 
-        padding: 15px; 
-        border-radius: 8px; 
-        border-left: 5px solid #FFCD00; 
-        color: #856404;
-        margin-bottom: 10px;
-    }
-    
-    .cat-box-opt { 
-        background-color: #e3f2fd; 
-        padding: 15px; 
-        border-radius: 8px; 
-        border-left: 5px solid #0d47a1; 
-        color: #084298;
-    }
-    
-    .cat-box-import {
-        background-color: #e8f5e9;
-        padding: 15px;
-        border-radius: 8px;
-        border-left: 5px solid #4caf50;
-        color: #2e7d32;
-        margin-bottom: 10px;
-    }
-    
-    /* Metrics */
-    div[data-testid="stMetricValue"] {
-        font-size: 28px !important;
-        font-weight: bold !important;
-    }
-    
-    /* Tabs */
-    .stTabs [aria-selected="true"] {
-        background-color: #FFCD00 !important;
-        color: #1A1A1A !important;
-    }
+    div[data-testid="stMetricValue"] { font-size: 28px !important; font-weight: bold !important; }
+    .stTabs [aria-selected="true"] { background-color: #FFCD00 !important; color: #1A1A1A !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -1171,6 +1058,22 @@ def run_simulation(n_gens, bess_mw, specs, sim_time=20.0):
         voltage_sag_pct = calculate_voltage_sag(step_mw, specs['xd_pp'], n_gens, S_base)
         
         is_stable = freq_stable and voltage_stable and rocof_ok
+
+        # --- NUEVA VALIDACIÓN MECÁNICA ---
+        # Calculamos cuánto golpe recibe CADA máquina individualmente
+        step_mw_per_unit = step_mw / n_gens
+        step_pct_actual = (step_mw_per_unit / specs['mw']) * 100
+        step_load_limit = specs['step_load_max']
+        
+        # Si el golpe real > límite del fabricante, el motor se ahoga
+        mechanical_overload = step_pct_actual > step_load_limit
+        
+        if mechanical_overload:
+            is_stable = False
+            fail_reason = f"Mechanical Step Limit Exceeded ({step_pct_actual:.1f}% > {step_load_limit}%)"
+        else:
+            fail_reason = None
+        # ---------------------------------
         
         return {
             'success': True,
@@ -1192,6 +1095,8 @@ def run_simulation(n_gens, bess_mw, specs, sim_time=20.0):
             'voltage_stable': voltage_stable,
             'rocof_ok': rocof_ok,
             'P_base': P_base,
+            'mechanical_overload': mechanical_overload,
+            'fail_reason': fail_reason,
         }
         
     except Exception as e:
